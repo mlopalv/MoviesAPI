@@ -8,6 +8,8 @@ const methodOverride = require("method-override");
 //const moviesRoutes = require('./routes/moviesRoutes');
 //const genresRoutes = require('./routes/genresRoutes');
 const genresRoutesAPI = require('./routes/api/genresRoutes');
+const moviesRoutesAPI = require('./routes/api/moviesRoutes');
+const actorsRoutesAPI = require('./routes/api/actorsRoutes');
 const app = express();
 //const db = require("./database/models");
 
@@ -30,6 +32,8 @@ app.use(express.urlencoded({ extended: false }));
 //app.use(moviesRoutes);
 //app.use(genresRoutes);
 app.use(genresRoutesAPI);
+app.use(moviesRoutesAPI);
+app.use(actorsRoutesAPI);
 
 
 
