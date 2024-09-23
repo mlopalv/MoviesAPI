@@ -3,10 +3,12 @@ const router = express.Router();
 
 const moviesController = require('../../controllers/api/moviesController');
 
-router.get('/api/movies', moviesController.list);
-router.get('/api/movies/detail/:id', moviesController.detail);
-router.post('/api/movies/create', moviesController.create);
-router.put('/api/movies/update/:id', moviesController.update);
+router.get('/', moviesController.list);
+router.get('/detail/:id', moviesController.detail);
+router.post('/create', moviesController.create);
+router.put('/update/:id', moviesController.update);
+router.delete('/delete/:id', moviesController.destroy);
+
 
 
 module.exports = router;

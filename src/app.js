@@ -32,7 +32,7 @@ app.use(express.urlencoded({ extended: false }));
 //app.use(moviesRoutes);
 //app.use(genresRoutes);
 app.use(genresRoutesAPI);
-app.use(moviesRoutesAPI);
+app.use("/api/movies", moviesRoutesAPI);
 app.use(actorsRoutesAPI);
 
 
