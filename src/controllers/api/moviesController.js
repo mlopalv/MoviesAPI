@@ -35,26 +35,53 @@ moviesController = {
     detail: (req, res) => {
         console.log("Movies controller details ...");
 
+        //ToDo implement code and message for situations in which the movie doesn't exist
+
         db.Pelicula.findByPk(req.params.id)
             .then(movie => {
+                console.log("Movie result after pull from DB -> " + movie);
 
-                let meta = {
-                    status: 200,
-                    total: 1,
-                    url: "api/movie/:id"
-                };
+                if (movie) {
+                    respuesta = {
+                        meta: {
+                            status: 200,
+                            total: 1,
+                            url: "api/movie/:id"
+                        },
+                        data: {
+                            id: movie.id,
+                            title: movie.title,
+                            rating: movie.rating,
+                            awards: movie.awards,
+                            releaseDate: movie.release_date,
+                            length: movie.lenght,
+                            genreId: movie.genre_id
+                        }
+                    }
+                } else {/** Confirmation of movie consultation is false*/
 
-                let data = {
-                    id: movie.id,
-                    title: movie.title,
-                    rating: movie.rating,
-                    awards: movie.awards,
-                    releaseDate: movie.release_date,
-                    length: movie.lenght,
-                    genreId: movie.genre_id
-                };
+                    console.log("Movie with Id " + req.params.id + " not found.");
 
-                res.json({ meta, data });
+                    respuesta = {
+                        meta: {
+                            status: "Failed",
+                            code: 500,
+                            total: 1,
+                            url: 'api/movies/create'
+                        },
+
+                        data: {
+                            message:
+                                "Movie with Id " + req.params.id + " not found."
+                        }
+                    }
+                }
+
+                /**Return the response either with if or else logic applied */
+                return res.json(respuesta);
+                //return;
+
+                //es.json({ meta, data });
 
             });
     },
@@ -71,17 +98,26 @@ moviesController = {
         console.log("Genre:" + parseInt(req.body.genre));
 
         const { body } = req;
+        /** Validates whether an incoming fiel is emtpy or with an different type value that the one accepted in the database*/
         if (
             !body.title ||
             !body.rating ||
             !body.awards ||
             !body.releaseDate ||
             !body.length ||
-            !body.genre
+            !body.genre ||
+            !validateMovieEntry({
+                title: body.title,
+                rating: body.rating,
+                awards: body.awards,
+                releaseDate: body.releaseDate,
+                length: body.length,
+                genre: body.genre
+            }, true)
         ) {
             respuesta = {
                 meta: {
-                    status: "FAILED",
+                    status: "Failed",
                     code: 400,
                     total: 0,
                     url: "api/movies/create"
@@ -89,7 +125,8 @@ moviesController = {
                 },
                 data: {
                     error:
-                        "One of the following keys is missing or is empty in request body: 'title', 'rating', 'awards', 'releaseDate', 'length', 'genre'"
+                        "One of the following keys is missing or is empty in request body: 'title', 'rating', 'awards', 'releaseDate', 'length', 'genre' Or one of those key values doesn't have" +
+                        "\\n the correct correspoding value: rating, awards, lenght and genre should be numeric. releaseDate should be a valid date."
                 }
             };
 
@@ -100,17 +137,17 @@ moviesController = {
         /** Validates wether there's a movie with the same title in the database */
         db.Pelicula.findAll({
             where: { "title": body.title }
-        
+
         }).then(movie => {
 
-            //if (movie !== null && typeof movie !== "undefined") {
+            //ToDo review whether returing a 200 code is the appropiate reponse for this situation
             if (movie.length > 0) {
-                console.log("Findall has found something ..." + movie.length)
+                console.log("FindAll operation has found something ..." + movie.length)
                 respuesta = {
                     meta: {
-                        status: "SUCCESS",
+                        status: "Success",
                         code: 200,
-                        total: 0,
+                        total: movie.length,
                         url: "api/movie/:id"
                     },
 
@@ -126,7 +163,7 @@ moviesController = {
 
             } else {
                 console.log("Movie is not in database. Movie entity record will be created.");
-                
+
                 /** Create the movie entity record in the database*/
                 db.Pelicula.create({
                     title: body.title,
@@ -144,7 +181,8 @@ moviesController = {
 
                         respuesta = {
                             meta: {
-                                status: 200,
+                                status: "Success",
+                                Code: 200,
                                 total: 1,
                                 url: "api/movies/create"
                             },
@@ -158,12 +196,16 @@ moviesController = {
 
                         respuesta = {
                             meta: {
-                                status: "FAILED",
+                                status: "Failed",
+                                code: 500,
                                 total: 1,
                                 url: 'api/movies/create'
                             },
 
-                            data: movie
+                            data: {
+                                message:
+                                    "The movie with title " + body.title + " couldn't be registered in the database."
+                            }
                         }
                     }
 
@@ -176,7 +218,7 @@ moviesController = {
                     console.log("Exception thrown during movie creation process. " + errorIn);
                     respuesta = {
                         meta: {
-                            status: 400,
+                            status: 500,
                             total: 0,
                             url: 'api/movies/create'
                         },
@@ -196,10 +238,6 @@ moviesController = {
             }
 
         })
-
-
-
-
     },
     /**Updates an exitent movie entity */
     update: (req, res) => {
@@ -210,9 +248,10 @@ moviesController = {
         /**First get the entity with the specific referenced id*/
 
         console.log("Getting movie entity with movieId = " + movieId);
-
+        //ToDo validar el ingreso de un Id inexistente
         db.Pelicula.findByPk(movieId)
             .then(movie => {
+
                 let data = {
                     id: movie.id,
                     title: movie.title,
@@ -222,8 +261,6 @@ moviesController = {
                     length: movie.lenght,
                     genreId: movie.genre_id
                 };
-
-
 
                 return data;
 
@@ -237,65 +274,96 @@ moviesController = {
                     console.log("Updating movie entity with genreId = " + req.body.genre);
 
                     typeof req.body.genre !== "undefined" ? console.log("Genre is not undefined") : console.log("Genre is undefined");
+                    /**If any of the incoming values is undefined, then the original valur remains */
+                    let movie = {
+                        id: movieFound.id,
+                        title: typeof req.body.title !== "undefined" ? req.body.title : movieFound.title,
+                        rating: typeof req.body.rating !== "undefined" ? req.body.rating : movieFound.rating,
+                        awards: typeof req.body.awards !== "undefined" ? req.body.awards : movieFound.awards,
+                        releaseDate: typeof req.body.releaseDate !== "undefined" ? req.body.releaseDate : movieFound.releaseDate,
+                        length: typeof req.body.length !== "undefined" ? req.body.length : movieFound.length,
+                        genre: typeof req.body.genre !== "undefined" ? req.body.genre : movieFound.genreId
+                    }
 
-                    db.Pelicula.update(
-                        {
-                            title: typeof req.body.title !== "undefined" ? req.body.title : movieFound.title,
-                            rating: typeof req.body.rating !== "undefined" ? parseFloat(req.body.rating) : movieFound.rating,
-                            awards: typeof req.body.awards !== "undefined" ? parseInt(req.body.awards) : movieFound.awards,
-                            release_date: typeof req.body.releaseDate !== "undefined" ? req.body.releaseDate : movieFound.releaseDate,
-                            length: typeof req.body.length !== "undefined" ? parseInt(req.body.length) : movieFound.length,
-                            genre_id: typeof req.body.genre !== "undefined" ? parseInt(req.body.genre) : movieFound.genre
-                        },
-                        {
-                            where: { id: movieId }
-                        }
-                    ).then(movie => {
+                    if (validateMovieEntry(movie, true)) {
+                        db.Pelicula.update(
+                            {
+                                title: movie.title,
+                                rating: movie.rating,
+                                awards: movie.awards,
+                                release_date: movie.releaseDate,
+                                length: movie.length,
+                                genre_id: movie.genre
+                            },
+                            {
+                                where: { id: movieId }
+                            }
+                        ).then(movie => {
 
-                        let respuesta;
+                            let respuesta;
 
-                        if (movie) {
+                            if (movie) {
+                                respuesta = {
+                                    meta: {
+                                        status: 200,
+                                        total: 1,
+                                        url: 'api/movies/update/:id'
+                                    },
+                                    data: movie
+                                }
+                            } else {
+                                respuesta = {
+                                    meta: {
+                                        status: 204,
+                                        total: 1,
+                                        url: 'api/movies/update/:id'
+                                    },
+                                    data: movie
+                                }
+                            }
+
+                            res.json(respuesta);
+
+                        }).catch(error => {
+
+                            console.log("Exception thrown during movie creation process. " + error);
                             respuesta = {
                                 meta: {
-                                    status: 200,
-                                    total: 1,
-                                    url: 'api/movies/update/:id'
+                                    status: 404,
+                                    total: 0,
+                                    url: 'api/movies/update'
                                 },
-                                data: movie
-                            }
-                        } else {
-                            respuesta = {
-                                meta: {
-                                    status: 204,
-                                    total: 1,
-                                    url: 'api/movies/update/:id'
-                                },
-                                data: movie
-                            }
-                        }
 
-                        res.json(respuesta);
+                                data: error
+                            };
 
-                    }).catch(error => {
+                            /**Return a response if a catch is triggered */
+                            res.json(respuesta);
 
-                        console.log("Exception thrown during movie creation process. " + error);
+                        });
+
+
+                    } else {
                         respuesta = {
                             meta: {
-                                status: 404,
+                                status: "Failed",
+                                code: 400,
                                 total: 0,
-                                url: 'api/movies/update'
-                            },
+                                url: "api/movies/update"
 
-                            data: error
+                            },
+                            data: {
+                                error:
+                                    "One of the following keys don't have the correct correspoding value: rating, awards, lenght and genre should be numeric. Release date should be a valid date."
+                            }
                         };
 
-                        /**Return a response if a catch is triggered */
-                        res.json(respuesta);
+                        res.status(400).json(respuesta);
+                        return;
+                    }
 
-                    })
                 } else {
                     console.log("No movie entity found with movieId = " + movieId);
-
 
                     respuesta = {
                         meta: {
@@ -354,6 +422,52 @@ moviesController = {
     }
 
 
+}
+/**
+ * Support functions
+ * ToDo: Move to a controller support.
+ * ToDo: Review express validations options.
+ */
+
+/**
+ * Validates movie data
+ * 
+ * @param {*} movie 
+ * @returns 
+ */
+function validateMovieEntry(movie, isCreation) {
+
+    let validationResult = true;
+    if (isCreation) {
+        if (!isNumber(movie.rating) || !isNumber(movie.awards) || !isNumber(movie.length) || !isNumber(movie.genre) || !isDateValid(movie.releaseDate)) {
+            validationResult = false;
+        }
+    } else {
+
+    }
+
+    return validationResult;
+}
+/**
+ * Validates a string that represents a number
+ * 
+ * @param {*} n 
+ * @returns 
+ */
+function isNumber(n) {
+    console.log("Validating if " + n + " is a not a number NaN -> " + isNaN(parseInt(n)));
+    return !isNaN(parseInt(n));
+}
+
+/**
+ * Validates a string that represents a date
+ * 
+ * @param {*} dateStr 
+ * @returns 
+ */
+function isDateValid(dateStr) {
+    console.log("Validating if " + dateStr + " is a not a date NaN -> " + isNaN(new Date(dateStr)));
+    return !isNaN(new Date(dateStr));
 }
 
 module.exports = moviesController;
